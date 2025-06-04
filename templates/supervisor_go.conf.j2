@@ -1,0 +1,9 @@
+[program:laravel-go-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=/bin/bash -c "cd {{ go_worker_dir }} && ./queue-worker"
+autostart=true
+autorestart=true
+user=ubuntu
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/home/ubuntu/logs/laravel-go-worker.log

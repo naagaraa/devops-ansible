@@ -1,0 +1,163 @@
+---
+- name: Setup Laravel + Go Worker + Bun + FrankenPHP
+  hosts: servers
+  become: yes
+  vars:
+    php_version: "8.3"
+    node_version: "20"
+
+  handlers:
+    - name: Restart Caddy
+      service:
+        name: caddy
+        state: restarted
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install basic dependencies
+      apt:
+        name:
+          - curl
+          - git
+          - unzip
+          - build-essential
+          - software-properties-common
+          - ca-certificates
+        state: present
+
+    - name: Add ondrej/php repository
+      shell: |
+        add-apt-repository -y ppa:ondrej/php
+        apt update
+      args:
+        creates: /etc/apt/sources.list.d/ondrej-ubuntu-php*.list
+
+    - name: Install PHP {{ php_version }} CLI dan extensions penting
+      apt:
+        name:
+          - php{{ php_version }}
+          - php{{ php_version }}-cli
+          - php{{ php_version }}-mbstring
+          - php{{ php_version }}-xml
+          - php{{ php_version }}-curl
+          - php{{ php_version }}-bcmath
+          - php{{ php_version }}-mysql
+          - php{{ php_version }}-zip
+          - php{{ php_version }}-gd
+          - php{{ php_version }}-intl
+        state: present
+
+    - name: Install Composer
+      get_url:
+        url: https://getcomposer.org/installer
+        dest: /tmp/composer-setup.php
+
+    - name: Setup Composer globally
+      shell: |
+        php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+
+    - name: Install Node.js v{{ node_version }} via NodeSource
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install Bun secara global
+      ansible.builtin.shell: |
+        curl -fsSL https://bun.sh/install | bash
+        if [ ! -f /usr/local/bin/bun ]; then
+          cp $HOME/.bun/bin/bun /usr/local/bin/bun
+        fi
+      environment:
+        BUN_INSTALL: "{{ ansible_env.HOME }}/.bun"
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/bun # This makes the task idempotent, it won't run if bun exists
+
+    - name: Verifikasi instalasi Bun
+      command: bun --version
+
+    - name: Install FrankenPHP via script resmi
+      shell: |
+        curl https://frankenphp.dev/install.sh | sh
+        mv frankenphp /usr/local/bin/
+      args:
+        creates: /usr/local/bin/frankenphp
+
+    - name: Symlink frankenphp ke /usr/local/bin/caddy
+      file:
+        src: /usr/local/bin/frankenphp
+        dest: /usr/local/bin/caddy
+        state: link
+        force: true
+
+    - name: Buat direktori /etc/caddy
+      file:
+        path: /etc/caddy
+        state: directory
+
+    - name: Template Caddyfile
+      template:
+        src: templates/Caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+      notify: Restart Caddy
+
+    - name: Install systemd service untuk FrankenPHP (Caddy)
+      copy:
+        dest: /etc/systemd/system/caddy.service
+        content: |
+          [Unit]
+          Description=Caddy web server (FrankenPHP)
+          Documentation=https://caddyserver.com/docs/
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile
+          Restart=on-failure
+          RestartSec=5s
+          LimitNOFILE=1048576
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart Caddy
+
+    - name: Enable dan start Caddy (FrankenPHP)
+      systemd:
+        name: caddy
+        enabled: yes
+        state: started
+
+    - name: Buat web root Laravel
+      file:
+        path: /var/www/html
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Install Go
+      apt:
+        name: golang
+        state: present
+
+    - name: Install Supervisor
+      apt:
+        name: supervisor
+        state: present
+
+    - name: Restart Supervisor
+      service:
+        name: supervisor
+        state: restarted
+
+    - name: Setup selesai
+      debug:
+        msg: "✅ Server siap untuk Laravel + Go + Bun + FrankenPHP!"

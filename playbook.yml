@@ -1,0 +1,12 @@
+---
+# - import_playbook: setup/server/ubuntu/setup_ubuntu_server.yml
+# - import_playbook: setup/server/ubuntu/setup_laravel_go.yml
+- import_playbook: setup/server/ubuntu/setup_ntopng.yml
+
+- name: Final message
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Final setup message
+      ansible.builtin.debug:
+        msg: "All setups completed successfully!"

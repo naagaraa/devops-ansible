@@ -1,0 +1,71 @@
+- name: Install dan konfigurasi ntopng
+  hosts: servers
+  become: yes
+  vars:
+    ntopng_interface: "eth0"
+    ntopng_http_port: "3000"
+
+  tasks:
+    - name: Update package list
+      apt:
+        update_cache: yes
+
+    - name: Install dependensi dasar
+      apt:
+        name:
+          - wget
+          - gnupg
+          - apt-transport-https
+          - software-properties-common
+        state: present
+
+    - name: Impor GPG Key untuk ntop
+      apt_key:
+        url: https://packages.ntop.org/apt-stable/public.key
+        state: present
+
+    - name: Tambahkan repository ntop
+      apt_repository:
+        repo: "deb https://packages.ntop.org/apt-stable/{{  ansible_distribution_version.stdout }} stable main"
+        filename: ntop
+
+    - name: Update package list setelah tambah repo
+      apt:
+        update_cache: yes
+
+    - name: Install ntopng
+      apt:
+        name: ntopng
+        state: latest
+
+    - name: Konfigurasi interface monitoring
+      lineinfile:
+        path: /etc/ntopng.conf
+        regexp: "^--interface="
+        line: "--interface={{ ntopng_interface }}"
+
+    - name: Tambahkan port HTTP
+      lineinfile:
+        path: /etc/ntopng.conf
+        regexp: "^--http-port="
+        line: "--http-port={{ ntopng_http_port }}"
+
+    - name: Enable dan start service ntopng
+      systemd:
+        name: ntopng
+        enabled: yes
+        state: started
+
+    - name: Buka port firewall
+      ufw:
+        rule: allow
+        port: "{{ ntopng_http_port }}"
+        proto: tcp
+
+    - name: Tampilkan info akses
+      debug:
+        msg: |
+          ntopng berhasil diinstal!
+          Akses melalui: http://<{{ hostvars['inventory_hostname']['ansible_default_ipv4']['address'] }}>:{{ ntopng_http_port }}
+          Username: admin
+          Password: admin

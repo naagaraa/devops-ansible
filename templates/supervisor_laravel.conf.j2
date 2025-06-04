@@ -1,0 +1,10 @@
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php {{ laravel_app_dir }}/artisan queue:work --sleep=3 --tries=3
+directory={{ laravel_app_dir }}
+autostart=true
+autorestart=true
+user=ubuntu
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/home/ubuntu/logs/laravel-worker.log
