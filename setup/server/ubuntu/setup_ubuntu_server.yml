@@ -1,0 +1,51 @@
+---
+- name: Setup basic Ubuntu server with enhancements
+  hosts: servers
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages and clean up
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Install basic packages
+      apt:
+        name:
+          - git
+          - curl
+          - ufw
+          - fail2ban
+          - python3-pip
+          - docker.io
+          - docker-compose
+          - unzip
+          - net-tools
+          - vim
+        state: present
+
+    - name: Setup firewall to allow SSH, HTTP, HTTPS
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+      loop:
+        - 22
+        - 80
+        - 443
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Ensure fail2ban is enabled and running
+      service:
+        name: fail2ban
+        enabled: yes
+        state: started
