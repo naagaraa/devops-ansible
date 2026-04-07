@@ -35,12 +35,13 @@ ansible/
 ├── inventory/
 │   └── hosts.ini        # Target servers inventory
 ├── playbooks/
-│   └── main.yml        # Main playbook
+│   └── main.yml         # Main playbook
 ├── roles/
 │   ├── ssh-users/       # SSH user management
 │   ├── ubuntu-base/     # Base server setup
 │   ├── ntopng/          # Network monitoring
-│   └── laravel-go/      # Laravel + Go stack
+│   ├── laravel-go/      # Laravel + Go stack
+│   └── postgresql/      # PostgreSQL database
 └── group_vars/          # Variables per group
 ```
 
@@ -68,6 +69,7 @@ your-server ansible_host=192.168.1.100 ansible_user=root ansible_ssh_private_key
 | `make base` | Ubuntu base setup only |
 | `make ntopng` | ntopng monitoring only |
 | `make laravel-go` | Laravel + Go + Nginx only |
+| `make postgresql` | PostgreSQL database only |
 | `make check` | Validate syntax |
 | `make dry-run` | Preview changes |
 
@@ -107,6 +109,14 @@ Full web stack with Nginx:
 - Bun
 - Go
 - Supervisor
+
+### postgresql
+
+PostgreSQL database server:
+- PostgreSQL 16
+- Creates databases and users
+- Remote access via password auth
+- Listens on port 5432
 
 ## SSH Users Configuration
 
@@ -148,6 +158,35 @@ ssh_ca_key: |
 ssh-keygen -s ssh_user_ca -I "user@host" -n username user-key.pub
 ```
 
+## PostgreSQL Configuration
+
+Edit `ansible/group_vars/servers.yml`:
+
+```yaml
+postgresql_databases:
+  - name: myapp_db
+    encoding: UTF8
+
+postgresql_users:
+  - name: myapp_user
+    password: "secure_password"
+    priv: ALL
+```
+
+### PostgreSQL Connection
+
+```bash
+# Connect to PostgreSQL
+psql -h localhost -U myapp_user -d myapp_db
+
+# Default connection info
+Host: <server_ip>
+Port: 5432
+Database: myapp_db
+User: myapp_user
+Password: (as configured)
+```
+
 ## Custom Variables
 
 Override defaults in `group_vars/servers.yml`:
@@ -165,6 +204,10 @@ nginx_web_root: "/var/www/html"
 # ntopng settings
 ntopng_interface: "eth0"
 ntopng_http_port: "3000"
+
+# PostgreSQL settings
+postgresql_version: "16"
+postgresql_port: 5432
 ```
 
 ## Running Specific Tags
@@ -172,6 +215,7 @@ ntopng_http_port: "3000"
 ```bash
 cd ansible
 ansible-playbook playbooks/main.yml --tags ssh-users
+ansible-playbook playbooks/main.yml --tags postgresql
 ```
 
 ## Troubleshooting
@@ -200,4 +244,14 @@ cd ansible
 ansible-playbook playbooks/main.yml -v     # Basic
 ansible-playbook playbooks/main.yml -vv    # More detail
 ansible-playbook playbooks/main.yml -vvv   # Connection debugging
+```
+
+### PostgreSQL Issues
+
+```bash
+# Check PostgreSQL status
+sudo systemctl status postgresql
+
+# Check PostgreSQL logs
+sudo tail -f /var/log/postgresql/postgresql-16-main.log
 ```

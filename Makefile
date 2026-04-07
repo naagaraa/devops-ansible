@@ -1,4 +1,4 @@
-.PHONY: help install check syntax dry-run ssh-users base ntopng laravel-go all
+.PHONY: help install check syntax dry-run ssh-users base ntopng laravel-go postgresql all
 
 ANSIBLE_CFG := $(shell pwd)/ansible.cfg
 export ANSIBLE_CONFIG := $(ANSIBLE_CFG)
@@ -12,6 +12,7 @@ help:
 	@echo "  make base         - Run ubuntu-base role only"
 	@echo "  make ntopng       - Run ntopng role only"
 	@echo "  make laravel-go   - Run laravel-go role only"
+	@echo "  make postgresql   - Run PostgreSQL role only"
 	@echo "  make all          - Run all roles (full setup)"
 
 install:
@@ -34,6 +35,9 @@ ntopng:
 
 laravel-go:
 	@cd ansible && ansible-playbook playbooks/main.yml --tags laravel-go
+
+postgresql:
+	@cd ansible && ansible-playbook playbooks/main.yml --tags postgresql
 
 all:
 	@cd ansible && ansible-playbook playbooks/main.yml

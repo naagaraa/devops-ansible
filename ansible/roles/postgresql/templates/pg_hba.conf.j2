@@ -1,0 +1,6 @@
+# PostgreSQL Client Authentication Configuration File
+# Managed by Ansible
+
+{% for rule in postgresql_pg_hba_conf | default([]) %}
+{{ rule.type }} {{ rule.database }} {{ rule.user }} {{ rule.address }} {{ rule.method }}
+{% endfor %}

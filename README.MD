@@ -17,7 +17,8 @@ ansible/
 │   ├── ssh-users/       # SSH user + certificate auth
 │   ├── ubuntu-base/     # Base Ubuntu server setup
 │   ├── ntopng/          # ntopng monitoring
-│   └── laravel-go/      # Laravel + Go + Nginx
+│   ├── laravel-go/      # Laravel + Go + Nginx
+│   └── postgresql/      # PostgreSQL database
 └── group_vars/          # Group variables
 ```
 
@@ -27,6 +28,7 @@ ansible/
 - **ubuntu-base**: Base Ubuntu server with firewall, fail2ban, docker
 - **ntopng**: Network monitoring tool
 - **laravel-go**: PHP-FPM, Nginx, Composer, Node.js, Bun, Go, Supervisor
+- **postgresql**: PostgreSQL database server
 
 ### Usage
 
@@ -41,6 +43,7 @@ make ssh-users
 make base
 make ntopng
 make laravel-go
+make postgresql
 
 # Dry run
 make dry-run

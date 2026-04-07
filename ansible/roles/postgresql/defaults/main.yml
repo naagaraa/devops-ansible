@@ -1,0 +1,31 @@
+---
+postgresql_version: "16"
+postgresql_port: 5432
+postgresql_user: postgres
+postgresql_default_db: postgres
+
+postgresql_databases: []
+postgresql_users: []
+
+postgresql_pg_hba_enabled: false
+postgresql_pg_hba_conf:
+  - type: local
+    database: all
+    user: postgres
+    address: ''
+    method: peer
+  - type: local
+    database: all
+    user: all
+    address: ''
+    method: peer
+  - type: host
+    database: all
+    user: all
+    address: '0.0.0.0/0'
+    method: md5
+  - type: host
+    database: all
+    user: all
+    address: '::0/0'
+    method: md5

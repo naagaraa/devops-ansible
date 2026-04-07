@@ -21,3 +21,13 @@ ssh_certificate_auth: true
 #   - name: developer
 #     comment: "Developer user"
 #     key_file: "files/keys/developer.pub"
+
+# PostgreSQL Configuration
+# postgresql_databases:
+#   - name: myapp_db
+#     encoding: UTF8
+#
+# postgresql_users:
+#   - name: myapp_user
+#     password: "secure_password"
+#     priv: ALL

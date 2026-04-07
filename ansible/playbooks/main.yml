@@ -31,6 +31,14 @@
     - role: laravel-go
       tags: [laravel-go]
 
+- name: Setup PostgreSQL Database
+  hosts: servers
+  become: yes
+  tags: [postgresql]
+  roles:
+    - role: postgresql
+      tags: [postgresql]
+
 - name: Final message
   hosts: localhost
   gather_facts: false
