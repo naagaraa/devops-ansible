@@ -1,0 +1,3 @@
+---
+ntopng_interface: "eth0"
+ntopng_http_port: "3000"

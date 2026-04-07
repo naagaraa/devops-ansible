@@ -1,0 +1,41 @@
+---
+- name: Setup SSH users with certificate authentication
+  hosts: servers
+  become: yes
+  tags: [ssh-users]
+  roles:
+    - role: ssh-users
+      tags: [ssh-users]
+
+- name: Apply base Ubuntu server configuration
+  hosts: servers
+  become: yes
+  tags: [ubuntu-base]
+  roles:
+    - role: ubuntu-base
+      tags: [ubuntu-base]
+
+- name: Install and configure ntopng
+  hosts: servers
+  become: yes
+  tags: [ntopng]
+  roles:
+    - role: ntopng
+      tags: [ntopng]
+
+- name: Setup Laravel + Go + Nginx
+  hosts: servers
+  become: yes
+  tags: [laravel-go]
+  roles:
+    - role: laravel-go
+      tags: [laravel-go]
+
+- name: Final message
+  hosts: localhost
+  gather_facts: false
+  tags: [never]
+  tasks:
+    - name: Final setup message
+      ansible.builtin.debug:
+        msg: "All setups completed successfully!"

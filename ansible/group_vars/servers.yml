@@ -1,0 +1,23 @@
+---
+# SSH Users Configuration
+# Add users with their public keys for certificate-based SSH authentication
+
+ssh_port: 22
+ssh_password_auth: false
+ssh_certificate_auth: true
+
+# Optional: CA public key for certificate validation
+# ssh_ca_key: |
+#   ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7...
+
+# Example users (uncomment and modify as needed)
+# ssh_users:
+#   - name: deploy
+#     comment: "Deployment user"
+#     groups: sudo
+#     shell: /bin/bash
+#     key: "ssh-rsa AAAA... user@host"
+#   
+#   - name: developer
+#     comment: "Developer user"
+#     key_file: "files/keys/developer.pub"

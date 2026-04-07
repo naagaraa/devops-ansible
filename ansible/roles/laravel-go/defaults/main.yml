@@ -1,0 +1,4 @@
+---
+php_version: "8.3"
+node_version: "20"
+nginx_web_root: "/var/www/html"

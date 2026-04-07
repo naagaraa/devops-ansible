@@ -1,0 +1,129 @@
+---
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install basic dependencies
+  apt:
+    name:
+      - curl
+      - git
+      - unzip
+      - build-essential
+      - software-properties-common
+      - ca-certificates
+    state: present
+
+- name: Add ondrej/php repository
+  shell: |
+    add-apt-repository -y ppa:ondrej/php
+    apt update
+  args:
+    creates: /etc/apt/sources.list.d/ondrej-ubuntu-php*.list
+
+- name: Install Nginx and PHP-FPM
+  apt:
+    name:
+      - nginx
+      - php{{ php_version }}-fpm
+      - php{{ php_version }}-mbstring
+      - php{{ php_version }}-xml
+      - php{{ php_version }}-curl
+      - php{{ php_version }}-bcmath
+      - php{{ php_version }}-mysql
+      - php{{ php_version }}-zip
+      - php{{ php_version }}-gd
+      - php{{ php_version }}-intl
+    state: present
+
+- name: Install Composer
+  get_url:
+    url: https://getcomposer.org/installer
+    dest: /tmp/composer-setup.php
+
+- name: Setup Composer globally
+  shell: |
+    php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+
+- name: Install Node.js v{{ node_version }} via NodeSource
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
+  args:
+    executable: /bin/bash
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+
+- name: Install Bun globally
+  ansible.builtin.shell: |
+    curl -fsSL https://bun.sh/install | bash
+    if [ ! -f /usr/local/bin/bun ]; then
+      cp $HOME/.bun/bin/bun /usr/local/bin/bun
+    fi
+  environment:
+    BUN_INSTALL: "{{ ansible_env.HOME }}/.bun"
+  args:
+    executable: /bin/bash
+    creates: /usr/local/bin/bun
+
+- name: Verify Bun installation
+  command: bun --version
+
+- name: Create web root directory
+  file:
+    path: "{{ nginx_web_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Template Nginx config
+  template:
+    src: nginx-laravel.conf.j2
+    dest: /etc/nginx/sites-available/laravel
+  notify: Restart Nginx
+
+- name: Enable Laravel site
+  file:
+    src: /etc/nginx/sites-available/laravel
+    dest: /etc/nginx/sites-enabled/laravel
+    state: link
+  notify: Restart Nginx
+
+- name: Disable default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart Nginx
+
+- name: Test Nginx configuration
+  command: nginx -t
+  changed_when: false
+
+- name: Ensure Nginx is started
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started
+
+- name: Install Go
+  apt:
+    name: golang
+    state: present
+
+- name: Install Supervisor
+  apt:
+    name: supervisor
+    state: present
+
+- name: Restart Supervisor
+  service:
+    name: supervisor
+    state: restarted
+
+- name: Setup complete
+  debug:
+    msg: "✅ Server ready for Laravel + Go + Bun + Nginx!"

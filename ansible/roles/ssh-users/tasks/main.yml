@@ -1,0 +1,84 @@
+---
+- name: Install OpenSSH server
+  apt:
+    name:
+      - openssh-server
+      - openssh-client
+    state: present
+
+- name: Ensure SSH directory exists
+  file:
+    path: /var/run/sshd
+    state: directory
+    mode: '0755'
+
+- name: Configure SSH for certificate authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+    - { regexp: '^#?AuthorizedKeysFile', line: 'AuthorizedKeysFile .ssh/authorized_keys' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication {{ "yes" if ssh_password_auth else "no" }}' }
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+  notify: Restart SSH
+
+- name: Create SSH users
+  user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default(item.name) }}"
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    create_home: yes
+    groups: "{{ item.groups | default('sudo') }}"
+    append: yes
+  loop: "{{ ssh_users }}"
+  when: ssh_users | length > 0
+
+- name: Create .ssh directory for users
+  file:
+    path: "/home/{{ item.name }}/.ssh"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0700'
+  loop: "{{ ssh_users }}"
+  when: ssh_users | length > 0
+
+- name: Deploy SSH public keys
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ lookup('file', item.key_file | default('~/.ssh/' + item.name + '.pub')) }}"
+    state: present
+  loop: "{{ ssh_users }}"
+  when: ssh_users | length > 0 and item.key_file is defined
+
+- name: Deploy SSH public keys from content
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.key }}"
+    state: present
+  loop: "{{ ssh_users }}"
+  when: ssh_users | length > 0 and item.key is defined
+
+- name: Setup CA public key for user certificate validation
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?TrustedUserCAKeys'
+    line: 'TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem'
+  when: ssh_certificate_auth | bool
+  notify: Restart SSH
+
+- name: Deploy trusted CA public key
+  copy:
+    dest: /etc/ssh/trusted-user-ca-keys.pem
+    content: "{{ ssh_ca_key }}"
+    mode: '0644'
+    owner: root
+  when: ssh_certificate_auth | bool and ssh_ca_key is defined
+
+- name: Ensure SSH is started
+  systemd:
+    name: sshd
+    enabled: yes
+    state: started

@@ -1,0 +1,5 @@
+---
+ssh_users: []
+ssh_port: 22
+ssh_password_auth: false
+ssh_certificate_auth: true
