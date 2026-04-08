@@ -1,0 +1,80 @@
+---
+# SYSTEM UPDATE
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Upgrade packages with progress
+  shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get -y upgrade --with-new-pkgs -o Dpkg::Progress-Fancy=1
+  args:
+    executable: /bin/bash
+
+# BASE PACKAGES
+- name: Install base packages
+  apt:
+    name:
+      - git
+      - curl
+      - unzip
+      - net-tools
+      - build-essential
+      - nginx
+      - python3-psycopg2
+    state: present
+
+- name: Enable and start Nginx
+  service:
+    name: nginx
+    enabled: yes
+    state: started
+
+# NVM INSTALL
+- name: Install NVM
+  become_user: "{{ app_user }}"
+  shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version }}/install.sh | bash
+  args:
+    executable: /bin/bash
+- name: Install Node.js LTS via NVM
+  become_user: "{{ app_user }}"
+  shell: |
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    nvm install --lts
+    nvm alias default 'lts/*'
+  args:
+    executable: /bin/bash
+  register: node_install
+
+# PM2 INSTALL
+- name: Install PM2 globally
+  become_user: "{{ app_user }}"
+  shell: |
+    export NVM_DIR="$HOME/.nvm"
+    . "$NVM_DIR/nvm.sh"
+    npm install -g pm2
+  args:
+    executable: /bin/bash
+
+# PM2 STARTUP
+- name: Get Node.js version installed by NVM
+  become_user: "{{ app_user }}"
+  shell: |
+    export NVM_DIR="$HOME/.nvm"
+    . "$NVM_DIR/nvm.sh"
+    nvm current
+  args:
+    executable: /bin/bash
+  register: node_version
+- name: Setup PM2 startup (systemd)
+  become: true
+  shell: |
+    export NVM_DIR="/home/{{ app_user }}/.nvm"
+    . "$NVM_DIR/nvm.sh"
+    env PATH=$PATH:$NVM_DIR/versions/node/{{ node_version.stdout }}/bin pm2 startup systemd -u {{ app_user }} --hp /home/{{ app_user }}
+  args:
+    executable: /bin/bash

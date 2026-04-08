@@ -3,29 +3,36 @@ postgresql_version: "16"
 postgresql_port: 5432
 postgresql_user: postgres
 postgresql_default_db: postgres
-
 postgresql_databases: []
 postgresql_users: []
-
+postgresql_grants: []
 postgresql_pg_hba_enabled: false
 postgresql_pg_hba_conf:
   - type: local
     database: all
     user: postgres
-    address: ''
+    address: ""
     method: peer
   - type: local
     database: all
     user: all
-    address: ''
+    address: ""
     method: peer
   - type: host
     database: all
     user: all
-    address: '0.0.0.0/0'
+    address: "0.0.0.0/0"
     method: md5
   - type: host
     database: all
     user: all
-    address: '::0/0'
+    address: "::0/0"
     method: md5
+
+# =========================
+# BACKUP DEFAULTS
+# =========================
+postgresql_backup_enabled: false
+postgresql_backup_dir: /var/backups/postgresql
+postgresql_backup_retention_days: 7
+postgresql_backup_schedule: "0 2 * * *"

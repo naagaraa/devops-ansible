@@ -1,6 +1,7 @@
-# PostgreSQL Client Authentication Configuration File
-# Managed by Ansible
+# PostgreSQL Client Authentication Configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
 
-{% for rule in postgresql_pg_hba_conf | default([]) %}
-{{ rule.type }} {{ rule.database }} {{ rule.user }} {{ rule.address }} {{ rule.method }}
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+{% for entry in postgresql_pg_hba_conf %}
+{{ entry.type }}     {{ entry.database }}     {{ entry.user }}     {{ entry.address }}     {{ entry.method }}
 {% endfor %}

@@ -89,7 +89,6 @@ Base Ubuntu server configuration:
 - Package updates
 - Firewall (UFW)
 - fail2ban
-- Docker & Docker Compose
 - Basic tools (git, curl, vim, etc.)
 
 ### ntopng

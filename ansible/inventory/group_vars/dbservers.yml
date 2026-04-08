@@ -1,0 +1,97 @@
+---
+# =========================
+# POSTGRESQL CONFIGURATION
+# =========================
+# postgresql_version: "16"
+# postgresql_port: 5432
+
+# =========================
+# DATABASES
+# =========================
+postgresql_databases:
+  - name: appspace_db
+    encoding: UTF8
+
+# =========================
+# USERS
+# =========================
+postgresql_users:
+  # admin - full access
+  - name: db_admin
+    password: "str0ngAdminP@ss!"
+    role: admin
+
+  # developer - limited access
+  - name: db_developer
+    password: "str0ngDevP@ss!"
+    role: developer
+
+  # backup user - read only
+  - name: db_backup
+    password: "str0ngBackupP@ss!"
+    role: backup
+
+# =========================
+# GRANTS
+# =========================
+postgresql_grants:
+  # admin gets full access
+  - db: appspace_db
+    roles: db_admin
+    privs: ALL
+
+  # developer gets read/write only
+  - db: appspace_db
+    roles: db_developer
+    privs: CONNECT
+
+  # backup gets read only
+  - db: appspace_db
+    roles: db_backup
+    privs: CONNECT
+
+postgresql_remote: 192.168.1.0/24
+postgresql_pg_hba_enabled: true
+postgresql_pg_hba_conf:
+  # local postgres user - keep peer for safety
+  - type: local
+    database: all
+    user: postgres
+    address: ""
+    method: peer
+
+  # local connections use md5 password
+  - type: local
+    database: all
+    user: all
+    address: ""
+    method: md5
+
+  # IPv4 connections
+  - type: host
+    database: all
+    user: all
+    address: "127.0.0.1/32"
+    method: md5
+
+  # IPv4 all
+  - type: host
+    database: all
+    user: all
+    address: "0.0.0.0/0"
+    method: md5
+
+  # IPv6 all
+  - type: host
+    database: all
+    user: all
+    address: "::0/0"
+    method: md5
+
+# =========================
+# BACKUP CONFIGURATION
+# =========================
+postgresql_backup_enabled: true
+postgresql_backup_dir: /var/backups/postgresql
+postgresql_backup_retention_days: 7
+postgresql_backup_schedule: "0 2 * * *"
