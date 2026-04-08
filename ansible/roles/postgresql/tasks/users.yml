@@ -1,0 +1,104 @@
+---
+- name: Reload PostgreSQL
+  service:
+    name: postgresql
+    state: reloaded
+  when: postgresql_pg_hba_enabled | bool
+
+- name: Create databases
+  postgresql_db:
+    name: "{{ item.name }}"
+    state: present
+    owner: "{{ item.owner | default(postgresql_user) }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_databases }}"
+
+- name: Create users
+  postgresql_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    role_attr_flags: "{{ item.role | default('NOLOGIN') }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_users }}"
+  when: postgresql_manage_with_ansible | default(true)
+
+- name: Grant admin privileges
+  postgresql_privs:
+    database: "{{ item.db }}"
+    roles: "{{ item.roles }}"
+    type: database
+    privs: ALL
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_admin'
+  register: admin_privs_result
+
+- name: Grant developer privileges - database
+  postgresql_privs:
+    database: "{{ item.db }}"
+    roles: "{{ item.roles }}"
+    type: database
+    privs: CONNECT
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_developer'
+
+- name: Grant developer privileges - schema
+  postgresql_query:
+    query: "GRANT USAGE ON SCHEMA public TO {{ item.roles }}"
+    db: "{{ item.db }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_developer'
+
+- name: Grant developer privileges - tables
+  postgresql_query:
+    query: "GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO {{ item.roles }}"
+    db: "{{ item.db }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_developer'
+
+- name: Grant backup privileges - database
+  postgresql_privs:
+    database: "{{ item.db }}"
+    roles: "{{ item.roles }}"
+    type: database
+    privs: CONNECT
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_backup'
+
+- name: Grant backup privileges - schema
+  postgresql_query:
+    query: "GRANT USAGE ON SCHEMA public TO {{ item.roles }}"
+    db: "{{ item.db }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_backup'
+
+- name: Grant backup privileges - tables
+  postgresql_query:
+    query: "GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ item.roles }}"
+    db: "{{ item.db }}"
+    login_host: 127.0.0.1
+    login_user: postgres
+    login_password: "{{ postgresql_default_password | default('postgres') }}"
+  loop: "{{ postgresql_grants }}"
+  when: item.roles == 'db_backup'

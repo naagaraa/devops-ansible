@@ -3,10 +3,13 @@ postgresql_version: "16"
 postgresql_port: 5432
 postgresql_user: postgres
 postgresql_default_db: postgres
+postgresql_manage_with_ansible: true
 postgresql_databases: []
 postgresql_users: []
 postgresql_grants: []
 postgresql_pg_hba_enabled: false
+postgresql_remote: "0.0.0.0/0"
+
 postgresql_pg_hba_conf:
   - type: local
     database: all
@@ -29,10 +32,9 @@ postgresql_pg_hba_conf:
     address: "::0/0"
     method: md5
 
-# =========================
-# BACKUP DEFAULTS
-# =========================
 postgresql_backup_enabled: false
 postgresql_backup_dir: /var/backups/postgresql
 postgresql_backup_retention_days: 7
-postgresql_backup_schedule: "0 2 * * *"
+postgresql_backup_cron:
+  minute: "0"
+  hour: "2"

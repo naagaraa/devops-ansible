@@ -1,0 +1,21 @@
+---
+- name: Find existing default MOTD scripts
+  find:
+    paths: /etc/update-motd.d/
+    patterns: "*"
+    excludes: "99-postgresql"
+  register: existing_motd_files
+
+- name: Disable existing default MOTD scripts
+  file:
+    path: "{{ item.path }}"
+    mode: "0644"
+  loop: "{{ existing_motd_files.files }}"
+
+- name: Create custom MOTD script
+  template:
+    src: postgresql-motd.j2
+    dest: /etc/update-motd.d/99-postgresql
+    owner: root
+    group: root
+    mode: "0755"

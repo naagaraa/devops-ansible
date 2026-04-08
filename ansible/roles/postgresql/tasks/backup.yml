@@ -1,0 +1,37 @@
+---
+- name: Create backup directory
+  file:
+    path: "{{ postgresql_backup_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+  when: postgresql_backup_enabled | bool
+
+- name: Create backup script
+  template:
+    src: pg_backup.sh.j2
+    dest: /usr/local/bin/pg_backup.sh
+    owner: postgres
+    group: postgres
+    mode: "0750"
+  when: postgresql_backup_enabled | bool
+
+- name: Schedule backup cron job
+  cron:
+    name: "PostgreSQL backup"
+    user: postgres
+    job: "/usr/local/bin/pg_backup.sh >> /var/log/pg_backup.log 2>&1"
+    minute: "{{ postgresql_backup_cron.minute | default('0') }}"
+    hour: "{{ postgresql_backup_cron.hour | default('2') }}"
+    state: present
+  when: postgresql_backup_enabled | bool
+
+- name: Create recovery script
+  template:
+    src: pg_recovery.sh.j2
+    dest: /usr/local/bin/pg_recovery.sh
+    owner: postgres
+    group: postgres
+    mode: "0750"
+  when: postgresql_backup_enabled | bool

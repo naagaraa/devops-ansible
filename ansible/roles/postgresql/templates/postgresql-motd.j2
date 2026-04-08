@@ -1,0 +1,63 @@
+#!/bin/bash
+# =========================
+# PostgreSQL MOTD
+# =========================
+BACKUP_DIR="{{ postgresql_backup_dir }}"
+
+echo ""
+echo "=========================================================="
+echo "           PostgreSQL Database Server"
+echo "=========================================================="
+echo ""
+
+echo "DATABASE STATUS"
+echo "------------------------------------------------------------"
+PG_STATUS=$(systemctl is-active postgresql)
+if [ "$PG_STATUS" = "active" ]; then
+  echo "  PostgreSQL   : Running"
+else
+  echo "  PostgreSQL   : Stopped"
+fi
+
+echo ""
+echo "  Databases:"
+sudo -u postgres psql -tc "SELECT '  -> ' || datname FROM pg_database WHERE datname NOT IN ('template0','template1','postgres');" 2>/dev/null
+
+echo ""
+echo "  Users:"
+sudo -u postgres psql -tc "SELECT '  -> ' || rolname || ' (' || CASE WHEN rolsuper THEN 'admin' WHEN rolcreatedb THEN 'createdb' ELSE 'normal' END || ')' FROM pg_roles WHERE rolname NOT LIKE 'pg_%';" 2>/dev/null
+
+echo ""
+echo "BACKUP STATUS"
+echo "------------------------------------------------------------"
+if [ -d "$BACKUP_DIR" ]; then
+  LATEST=$(ls -t $BACKUP_DIR/*.sql.gz 2>/dev/null | head -1)
+  COUNT=$(ls $BACKUP_DIR/*.sql.gz 2>/dev/null | wc -l)
+  if [ -n "$LATEST" ]; then
+    LATEST_DATE=$(stat -c %y "$LATEST" | cut -d' ' -f1,2 | cut -d'.' -f1)
+    LATEST_SIZE=$(du -sh "$LATEST" | cut -f1)
+    echo "  Latest Backup : $LATEST_DATE"
+    echo "  Backup Size   : $LATEST_SIZE"
+    echo "  Total Backups : $COUNT file(s)"
+  else
+    echo "  WARNING: No backups found!"
+  fi
+else
+  echo "  WARNING: Backup directory not found!"
+fi
+
+echo ""
+NEXT_BACKUP=$(sudo -u postgres crontab -l 2>/dev/null | grep pg_backup | awk '{print "Every day at "$2":00"}')
+echo "  Next Schedule : ${NEXT_BACKUP:-Not scheduled}"
+
+echo ""
+echo "QUICK COMMANDS"
+echo "------------------------------------------------------------"
+echo "  List backups  : sudo /usr/local/bin/pg_recovery.sh"
+echo "  Restore DB    : sudo /usr/local/bin/pg_recovery.sh <backup_file> <db_name>"
+echo "  Manual backup : sudo /usr/local/bin/pg_backup.sh"
+echo "  Connect DB    : sudo -u postgres psql"
+echo "  Adminer UI    : http://$(hostname -I | awk '{print $1}')/"
+echo ""
+echo "BACKUP LOG   : tail -f /var/log/pg_backup.log"
+echo "------------------------------------------------------------"

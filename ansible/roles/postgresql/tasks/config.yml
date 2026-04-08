@@ -1,0 +1,31 @@
+---
+- name: Ensure PostgreSQL running
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Configure pg_hba.conf
+  template:
+    src: pg_hba.conf.j2
+    dest: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  when: postgresql_pg_hba_enabled | bool
+  notify: restart postgresql
+
+- name: Ensure PostgreSQL listens on all interfaces
+  lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '*'"
+    state: present
+  notify: restart postgresql
+
+- name: Allow PostgreSQL port for remote IP
+  ufw:
+    rule: allow
+    port: 5432
+    proto: tcp
+    from_ip: "{{ postgresql_remote }}"

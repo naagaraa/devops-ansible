@@ -1,0 +1,16 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - postgresql-client
+    state: present
+    update_cache: yes
+
+- name: Install PostgreSQL Python dependencies
+  apt:
+    name:
+      - python3-psycopg2
+    state: present
+  when: postgresql_manage_with_ansible | default(true)

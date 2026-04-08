@@ -1,0 +1,26 @@
+#!/bin/bash
+# =========================
+# PostgreSQL Backup Script
+# =========================
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="{{ postgresql_backup_dir }}"
+RETENTION_DAYS="{{ postgresql_backup_retention_days }}"
+
+echo "Starting backup at $DATE"
+
+{% for db in postgresql_databases %}
+echo "Backing up {{ db.name }}..."
+sudo -u postgres pg_dump {{ db.name }} | gzip > $BACKUP_DIR/{{ db.name }}_$DATE.sql.gz
+
+if [ $? -eq 0 ]; then
+  echo "[OK] {{ db.name }} backup SUCCESS"
+else
+  echo "[FAIL] {{ db.name }} backup FAILED"
+  exit 1
+fi
+{% endfor %}
+
+echo "Removing backups older than $RETENTION_DAYS days..."
+find $BACKUP_DIR -name "*.sql.gz" -mtime +$RETENTION_DAYS -delete
+
+echo "Backup completed at $(date +%Y%m%d_%H%M%S)"

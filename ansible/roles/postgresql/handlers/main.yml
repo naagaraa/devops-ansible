@@ -4,7 +4,12 @@
     name: postgresql
     state: restarted
 
-- name: Reload PostgreSQL
+- name: reload postgresql
   systemd:
     name: postgresql
     state: reloaded
+
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted

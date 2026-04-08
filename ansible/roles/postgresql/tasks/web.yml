@@ -1,0 +1,73 @@
+---
+- name: Install web dependencies
+  apt:
+    name:
+      - nginx
+      - php
+      - php-fpm
+      - php-pgsql
+      - php-mbstring
+      - php-xml
+      - php-curl
+      - php-zip
+    state: present
+    update_cache: yes
+
+- name: Get PHP version
+  shell: php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;"
+  register: php_version
+  changed_when: false
+
+- name: Ensure Nginx running
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Ensure PHP-FPM running
+  service:
+    name: "php{{ php_version.stdout }}-fpm"
+    state: started
+    enabled: yes
+
+- name: Create Adminer directory
+  file:
+    path: /var/www/adminer
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: Download Adminer
+  get_url:
+    url: https://www.adminer.org/latest.php
+    dest: /var/www/adminer/index.php
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Configure Nginx for Adminer
+  template:
+    src: adminer.conf.j2
+    dest: /etc/nginx/sites-available/adminer.conf
+  notify: restart nginx
+
+- name: Enable Adminer site
+  file:
+    src: /etc/nginx/sites-available/adminer.conf
+    dest: /etc/nginx/sites-enabled/adminer.conf
+    state: link
+
+- name: Test Nginx configuration
+  command: nginx -t
+  changed_when: false
+
+- name: Restart PHP-FPM
+  service:
+    name: "php{{ php_version.stdout }}-fpm"
+    state: restarted

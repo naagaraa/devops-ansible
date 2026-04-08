@@ -19,17 +19,17 @@ postgresql_users:
   # admin - full access
   - name: db_admin
     password: "str0ngAdminP@ss!"
-    role: admin
+    role: LOGIN,CREATEDB,SUPERUSER
 
   # developer - limited access
   - name: db_developer
     password: "str0ngDevP@ss!"
-    role: developer
+    role: LOGIN,CREATEDB
 
   # backup user - read only
   - name: db_backup
     password: "str0ngBackupP@ss!"
-    role: backup
+    role: LOGIN
 
 # =========================
 # GRANTS
@@ -53,12 +53,19 @@ postgresql_grants:
 postgresql_remote: 192.168.1.0/24
 postgresql_pg_hba_enabled: true
 postgresql_pg_hba_conf:
-  # local postgres user - keep peer for safety
+  # local postgres user - peer for local socket
   - type: local
     database: all
     user: postgres
     address: ""
     method: peer
+
+  # trust localhost for ansible
+  - type: host
+    database: all
+    user: postgres
+    address: "127.0.0.1/32"
+    method: trust
 
   # local connections use md5 password
   - type: local
@@ -67,25 +74,18 @@ postgresql_pg_hba_conf:
     address: ""
     method: md5
 
-  # IPv4 connections
+  # IPv4 localhost - password auth
   - type: host
     database: all
     user: all
     address: "127.0.0.1/32"
     method: md5
 
-  # IPv4 all
+  # IPv4 connections
   - type: host
     database: all
     user: all
-    address: "0.0.0.0/0"
-    method: md5
-
-  # IPv6 all
-  - type: host
-    database: all
-    user: all
-    address: "::0/0"
+    address: "192.168.1.0/24"
     method: md5
 
 # =========================
