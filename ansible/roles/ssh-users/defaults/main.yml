@@ -3,3 +3,5 @@ ssh_users: []
 ssh_port: 22
 ssh_password_auth: false
 ssh_certificate_auth: true
+ssh_ca_key: ""
+ssh_per_user_keys: []  # List of {name, public_key} for per-user authorized_keys

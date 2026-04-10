@@ -1,0 +1,7 @@
+---
+# SSH CA Configuration
+ssh_certificate_auth: true
+ssh_ca_key: "{{ lookup('file', playbook_dir + '/../ssh-assets/ssh-ca.pub') }}"
+
+# Per-user SSH keys - will be populated from generated keys
+ssh_per_user_keys: []

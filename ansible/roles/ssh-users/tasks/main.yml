@@ -10,22 +10,56 @@
   file:
     path: /var/run/sshd
     state: directory
-    mode: '0755'
+    mode: "0755"
 
-- name: Configure SSH for certificate authentication
+- name: Validate SSH config before deployment
+  command: sshd -t -f /etc/ssh/sshd_config
+  register: sshd_validate
+  changed_when: false
+  failed_when: sshd_validate.rc != 0
+
+- name: Configure SSH with hardening settings
   lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
   loop:
-    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
-    - { regexp: '^#?AuthorizedKeysFile', line: 'AuthorizedKeysFile .ssh/authorized_keys' }
-    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication {{ "yes" if ssh_password_auth else "no" }}' }
-    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
-    - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+    - { regexp: "^#?PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+    - { regexp: "^#?PermitRootLogin", line: "PermitRootLogin no" }
+    - { regexp: "^#?PasswordAuthentication", line: "PasswordAuthentication no" }
+    - {
+        regexp: "^#?ChallengeResponseAuthentication",
+        line: "ChallengeResponseAuthentication no",
+      }
+    - { regexp: "^#?PermitEmptyPasswords", line: "PermitEmptyPasswords no" }
+    - { regexp: "^#?MaxAuthTries", line: "MaxAuthTries 10" }
+    - { regexp: "^#?LoginGraceTime", line: "LoginGraceTime 30" }
+    - { regexp: "^#?X11Forwarding", line: "X11Forwarding no" }
+    - { regexp: "^#?AllowTcpForwarding", line: "AllowTcpForwarding no" }
+    - {
+        regexp: "^#?AuthenticationMethods",
+        line: "AuthenticationMethods publickey",
+      }
   notify: Restart SSH
 
-- name: Create SSH users
+- name: Configure CA certificate authentication
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?TrustedUserCAKeys"
+    line: "TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem"
+  when: ssh_certificate_auth | bool
+  notify: Restart SSH
+
+- name: Deploy trusted CA public key
+  copy:
+    dest: /etc/ssh/trusted-user-ca-keys.pem
+    content: "{{ ssh_ca_key }}"
+    mode: "0644"
+    owner: root
+    group: root
+  when: ssh_certificate_auth | bool and ssh_ca_key is defined
+
+- name: Create SSH users with secure settings
   user:
     name: "{{ item.name }}"
     comment: "{{ item.comment | default(item.name) }}"
@@ -36,49 +70,44 @@
   loop: "{{ ssh_users }}"
   when: ssh_users | length > 0
 
-- name: Create .ssh directory for users
+- name: Create .ssh directory for users (0700)
   file:
     path: "/home/{{ item.name }}/.ssh"
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
-    mode: '0700'
+    mode: "0700"
+    state: directory
   loop: "{{ ssh_users }}"
   when: ssh_users | length > 0
 
-- name: Deploy SSH public keys
+- name: Deploy per-user public keys to authorized_keys
   authorized_key:
     user: "{{ item.name }}"
-    key: "{{ lookup('file', item.key_file | default('~/.ssh/' + item.name + '.pub')) }}"
+    key: "{{ item.public_key }}"
     state: present
-  loop: "{{ ssh_users }}"
-  when: ssh_users | length > 0 and item.key_file is defined
+  loop: "{{ ssh_per_user_keys }}"
+  when: ssh_per_user_keys | length > 0
 
-- name: Deploy SSH public keys from content
-  authorized_key:
-    user: "{{ item.name }}"
-    key: "{{ item.key }}"
-    state: present
+- name: Set authorized_keys file permissions (0600)
+  file:
+    path: "/home/{{ item.name }}/.ssh/authorized_keys"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+    state: touch
   loop: "{{ ssh_users }}"
-  when: ssh_users | length > 0 and item.key is defined
+  when: ssh_users | length > 0
+  ignore_errors: yes
 
-- name: Setup CA public key for user certificate validation
-  lineinfile:
-    path: /etc/ssh/sshd_config
-    regexp: '^#?TrustedUserCAKeys'
-    line: 'TrustedUserCAKeys /etc/ssh/trusted-user-ca-keys.pem'
-  when: ssh_certificate_auth | bool
+- name: Validate SSH config after changes
+  command: sshd -t -f /etc/ssh/sshd_config
+  register: sshd_validate_after
+  changed_when: false
+  failed_when: sshd_validate_after.rc != 0
   notify: Restart SSH
 
-- name: Deploy trusted CA public key
-  copy:
-    dest: /etc/ssh/trusted-user-ca-keys.pem
-    content: "{{ ssh_ca_key }}"
-    mode: '0644'
-    owner: root
-  when: ssh_certificate_auth | bool and ssh_ca_key is defined
-
-- name: Ensure SSH is started
+- name: Ensure SSH is started and enabled
   systemd:
-    name: sshd
+    name: "{{ 'sshd' if ansible_os_family == 'Ubuntu' else 'ssh' }}"
     enabled: yes
     state: started

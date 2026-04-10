@@ -1,0 +1,10 @@
+---
+- name: restart supervisor
+  service:
+    name: supervisor
+    state: restarted
+
+- name: reload octane
+  supervisorctl:
+    name: "{{ app_name }}" # Pake variabel biar gak salah restart
+    state: restarted

@@ -1,0 +1,50 @@
+---
+- name: Generate SSH Keys and Certificates
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  become: no
+  tags: [ssh-keys, ssh-keys:generate]
+  vars:
+    ssh_keys_dir: "{{ playbook_dir }}/../ssh-assets"
+    ssh_ca_enabled: true
+    ssh_generate_keys: true
+    ssh_key_users:
+      - { name: gateway, comment: "Gateway User" }
+      - { name: app-space, comment: "Web Server User" }
+      - { name: app-db, comment: "Database User" }
+      - { name: app-tailscale, comment: "Tailscale User" }
+  roles:
+    - role: ssh-keys
+      tags: [ssh-keys, ssh-keys:generate]
+      vars:
+        ssh_keys_dir: "{{ playbook_dir }}/../ssh-assets"
+        ssh_ca_enabled: true
+        ssh_generate_keys: true
+        ssh_key_users:
+          - { name: gateway, comment: "Gateway User" }
+          - { name: app-space, comment: "Web Server User" }
+          - { name: app-db, comment: "Database User" }
+          - { name: app-tailscale, comment: "Tailscale User" }
+
+- name: Distribute SSH configuration to servers
+  hosts: all_servers
+  become: yes
+  tags: [ssh-keys, ssh-keys:distribute]
+  vars:
+    ansible_user: "{{ ansible_ssh_user | default(omit) }}"
+    ansible_ssh_pass: "{{ ansible_ssh_pass | default(omit) }}"
+    ssh_ca_key: "{{ lookup('file', '/home/nagara/dev/startup/automation/ansible/ssh-assets/ssh-ca.pub') }}"
+    ssh_per_user_keys:
+      - name: gateway
+        public_key: "{{ lookup('file', '/home/nagara/dev/startup/automation/ansible/ssh-assets/users/gateway/gateway_key.pub') }}"
+      - name: app-space
+        public_key: "{{ lookup('file', '/home/nagara/dev/startup/automation/ansible/ssh-assets/users/app-space/app-space_key.pub') }}"
+      - name: app-db
+        public_key: "{{ lookup('file', '/home/nagara/dev/startup/automation/ansible/ssh-assets/users/app-db/app-db_key.pub') }}"
+      - name: app-tailscale
+        public_key: "{{ lookup('file', '/home/nagara/dev/startup/automation/ansible/ssh-assets/users/app-tailscale/app-tailscale_key.pub') }}"
+    ssh_users: []
+  roles:
+    - role: ssh-users
+      tags: [ssh-users]

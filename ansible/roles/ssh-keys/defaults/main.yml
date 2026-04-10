@@ -1,0 +1,20 @@
+---
+ssh_keys_dir: "{{ playbook_dir }}/ssh-assets"
+ssh_ca_enabled: true
+ssh_ca_type: ed25519
+ssh_ca_comment: "Infrastructure SSH CA"
+
+# Generate user keys and certificates
+ssh_generate_keys: true
+
+# Users to generate keys for
+ssh_key_users: []
+# Example:
+# ssh_key_users:
+#   - name: app-space
+#     comment: "Application User"
+#   - name: app-db
+#     comment: "Database User"
+
+# Key validity period (e.g., 52w = 1 year)
+ssh_cert_validity: 52w

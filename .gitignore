@@ -14,6 +14,10 @@ Thumbs.db
 # SSH
 *.pem
 *.key
+# But track SSH assets (public keys and certs only)
+!ansible/ssh-assets/**/*.pub
+!ansible/ssh-assets/**/*.cert.pub
+!/ansible/ssh-assets/ssh-ca.pub
 
 # Environment
 .env

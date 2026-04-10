@@ -1,0 +1,9 @@
+---
+app_name: "example-app" # Ganti sesuai project
+app_path: "/var/www/{{ app_name }}"
+app_user: "app-space"
+app_group: "www-data"
+php_version: "8.4"
+octane_port: 4000 # Tiap project harus port beda
+octane_admin_port: 2019 # Tiap project harus port admin beda
+octane_host: "0.0.0.0"

@@ -1,0 +1,87 @@
+---
+- name: Create SSH keys directory
+  file:
+    path: "{{ ssh_keys_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate SSH CA key
+  command: |
+    ssh-keygen -t {{ ssh_ca_type }} -f {{ ssh_keys_dir }}/ssh-ca -C "{{ ssh_ca_comment }}" -N ""
+  args:
+    creates: "{{ ssh_keys_dir }}/ssh-ca"
+  when: ssh_ca_enabled | bool
+
+- name: Ensure CA private key has correct permissions
+  file:
+    path: "{{ ssh_keys_dir }}/ssh-ca"
+    mode: '0600'
+  when: ssh_ca_enabled | bool
+
+- name: Ensure CA public key has correct permissions
+  file:
+    path: "{{ ssh_keys_dir }}/ssh-ca.pub"
+    mode: '0644'
+  when: ssh_ca_enabled | bool
+
+- name: Create user key directory
+  file:
+    path: "{{ ssh_keys_dir }}/users/{{ item.name }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: Generate user SSH key
+  command: |
+    ssh-keygen -t ed25519 -f {{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key -C "{{ item.comment }}" -N ""
+  args:
+    creates: "{{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key"
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: Sign user key with CA
+  command: |
+    ssh-keygen -s {{ ssh_keys_dir }}/ssh-ca -I "{{ item.name }}" -n {{ item.name }} -V +{{ ssh_cert_validity }} {{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key.pub
+  args:
+    creates: "{{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key-cert.pub"
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: Set private key permissions (600)
+  file:
+    path: "{{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key"
+    mode: '0600'
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: Set public key permissions (644)
+  file:
+    path: "{{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key.pub"
+    mode: '0644'
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: Set certificate permissions (644)
+  file:
+    path: "{{ ssh_keys_dir }}/users/{{ item.name }}/{{ item.name }}_key-cert.pub"
+    mode: '0644'
+  loop: "{{ ssh_key_users }}"
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0
+
+- name: List generated keys info
+  debug:
+    msg: |
+      SSH Keys generated in {{ ssh_keys_dir }}/users/
+      
+      CA Key (keep secret!): {{ ssh_keys_dir }}/ssh-ca
+      CA Public Key: {{ ssh_keys_dir }}/ssh-ca.pub
+      
+      User keys available:
+      {% for user in ssh_key_users %}
+      - {{ user.name }}:
+        - Private: {{ ssh_keys_dir }}/users/{{ user.name }}/{{ user.name }}_key
+        - Public:  {{ ssh_keys_dir }}/users/{{ user.name }}/{{ user.name }}_key.pub
+        - Cert:    {{ ssh_keys_dir }}/users/{{ user.name }}/{{ user.name }}_key-cert.pub
+      {% endfor %}
+  when: ssh_generate_keys | bool and ssh_key_users | length > 0

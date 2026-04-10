@@ -1,11 +1,11 @@
 ---
-# - name: Setup SSH users with certificate authentication
-#   hosts: servers
-#   become: yes
-#   tags: [ssh-users]
-#   roles:
-#     - role: ssh-users
-#       tags: [ssh-users]
+- name: Setup SSH users with certificate authentication
+  hosts: all_servers
+  become: yes
+  tags: [ssh-users]
+  roles:
+    - role: ssh-users
+      tags: [ssh-users]
 
 - name: Apply base app server configuration
   hosts: webservers
@@ -25,6 +25,14 @@
   roles:
     - role: laravel-go
       tags: [laravel-go]
+
+- name: Setup Laravel + Supervisor
+  hosts: webservers
+  become: yes
+  tags: [laravel-apps]
+  roles:
+    - role: laravel-octane
+      tags: [laravel-octane]
 
 - name: Setup PostgreSQL Database
   hosts: app-db

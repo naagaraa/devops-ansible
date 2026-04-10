@@ -1,0 +1,15 @@
+---
+# SSH CA Configuration
+ssh_certificate_auth: true
+ssh_ca_key: |
+  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...CA_KEY_CONTENT_HERE...
+
+# Per-user SSH keys for this host (for Tailscale users)
+ssh_per_user_keys: []
+
+# SSH Users (system users)
+ssh_users:
+  - name: app-tailscale
+    comment: "Tailscale User"
+    shell: /bin/bash
+    groups: sudo

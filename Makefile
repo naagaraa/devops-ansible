@@ -1,19 +1,22 @@
-.PHONY: help install check syntax dry-run ssh-users base ntopng laravel-go postgresql all
+.PHONY: help install check syntax dry-run ssh-keys ssh-keys-dist ssh-users base ntopng laravel-go postgresql all
 
 ANSIBLE_CFG := $(shell pwd)/ansible.cfg
 export ANSIBLE_CONFIG := $(ANSIBLE_CFG)
 
 help:
 	@echo "Available commands:"
-	@echo "  make install      - Install Ansible roles and collections"
-	@echo "  make check        - Check Ansible syntax"
-	@echo "  make dry-run      - Run ansible-playbook in check mode (dry run)"
-	@echo "  make ssh-users    - Create SSH users with certificate auth"
-	@echo "  make base         - Run app-server-base role only"
-	@echo "  make ntopng       - Run ntopng role only"
-	@echo "  make laravel-go   - Run laravel-go role only"
-	@echo "  make postgresql   - Run PostgreSQL role only"
-	@echo "  make all          - Run all roles (full setup)"
+	@echo "  make install            - Install Ansible roles and collections"
+	@echo "  make check              - Check Ansible syntax"
+	@echo "  make dry-run           - Run ansible-playbook in check mode (dry run)"
+	@echo "  make ssh-keys          - Generate SSH keys and certificates"
+	@echo "  make ssh-keys-dist     - Distribute SSH config to servers"
+	@echo "  make ssh-users         - Create SSH users with certificate auth"
+	@echo "  make base              - Run app-server-base role only"
+	@echo "  make laravel-apps      - Run Setup Laravel Apps"
+	@echo "  make ntopng            - Run ntopng role only"
+	@echo "  make laravel-go        - Run laravel-go role only"
+	@echo "  make postgresql        - Run PostgreSQL role only"
+	@echo "  make all               - Run all roles (full setup)"
 
 install:
 	@cd ansible && ansible-galaxy role install -r requirements.yml --ask-pass --ask-become-pass|| true
@@ -23,6 +26,15 @@ check:
 
 dry-run:
 	@cd ansible && ansible-playbook playbooks/main.yml --check --ask-pass --ask-become-pass
+
+laravel-apps:
+	@cd ansible && ansible-playbook playbooks/main.yml --tags laravel-apps --ask-pass --ask-become-pass
+
+ssh-keys:
+	@cd ansible && ansible-playbook playbooks/ssh-keys.yml --tags ssh-keys:generate --ask-pass --ask-become-pass
+
+ssh-keys-dist:
+	@cd ansible && ansible-playbook playbooks/ssh-keys.yml --tags ssh-keys:distribute --ask-pass --ask-become-pass
 
 ssh-users:
 	@cd ansible && ansible-playbook playbooks/main.yml --tags ssh-users --ask-pass --ask-become-pass

@@ -1,0 +1,17 @@
+---
+# SSH CA Configuration
+ssh_certificate_auth: true
+ssh_ca_key: |
+  ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...CA_KEY_CONTENT_HERE...
+
+# Per-user SSH keys for this host
+ssh_per_user_keys:
+  - name: app-space
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQ...USER_KEY...
+
+# SSH Users (system users)
+ssh_users:
+  - name: app-space
+    comment: "Application User"
+    shell: /bin/bash
+    groups: sudo

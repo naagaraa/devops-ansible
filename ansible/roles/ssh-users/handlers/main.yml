@@ -1,5 +1,5 @@
 ---
 - name: Restart SSH
   systemd:
-    name: sshd
+    name: "{{ 'sshd' if ansible_os_family == 'Ubuntu' else 'ssh' }}"
     state: restarted

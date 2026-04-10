@@ -1,0 +1,208 @@
+---
+# 1. Cek apakah file config supervisor untuk app ini sudah ada di server
+- name: Pre-check | Check if supervisor config exists
+  stat:
+    path: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+  register: supervisor_conf
+
+# 2. Cek apakah port aplikasi sedang dipakai
+- name: Pre-check | Check if Octane port is already in use
+  wait_for:
+    port: "{{ octane_port }}"
+    host: "{{ octane_host }}"
+    timeout: 1
+    state: started
+  register: port_check
+  ignore_errors: yes
+
+# 3. Cek apakah port admin sedang dipakai
+- name: Pre-check | Check if Admin port is already in use
+  wait_for:
+    port: "{{ octane_admin_port }}"
+    host: "{{ octane_host }}"
+    timeout: 1
+    state: started
+  register: admin_port_check
+  ignore_errors: yes
+
+# 4. Fail jika port terisi TAPI bukan oleh aplikasi kita sendiri
+- name: Pre-check | Fail if ports are taken by another process
+  fail:
+    msg: "Port {{ octane_port }} atau {{ octane_admin_port }} sudah dipakai service lain! Gunakan port lain untuk '{{ app_name }}'."
+  when:
+    - (port_check is succeeded or admin_port_check is succeeded)
+    - not supervisor_conf.stat.exists
+
+- name: Install software-properties-common for PPA
+  apt:
+    name: software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Add Ondrej PHP PPA
+  apt_repository:
+    repo: "ppa:ondrej/php"
+  when: ansible_os_family == 'Debian'
+
+- name: Check if Composer is installed
+  stat:
+    path: /usr/local/bin/composer
+  register: composer_bin
+
+- name: Install Composer globally
+  shell: |
+    curl -sS https://getcomposer.org/installer | php
+    mv composer.phar /usr/local/bin/composer
+    chmod +x /usr/local/bin/composer
+  when: not composer_bin.stat.exists
+
+- name: Install PHP extensions & dependencies
+  apt:
+    name:
+      - "php{{ php_version }}-cli"
+      - "php{{ php_version }}-common"
+      - "php{{ php_version }}-sqlite3"
+      - "php{{ php_version }}-curl"
+      - "php{{ php_version }}-mbstring"
+      - "php{{ php_version }}-xml"
+      - "php{{ php_version }}-zip"
+      - unzip
+      - supervisor
+      - acl
+    state: present
+    update_cache: yes
+
+# Pindahkan pembenaran Group & User ke atas agar Composer Install tidak bermasalah dengan permission
+- name: Ensure app group exists
+  group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Add user to web group
+  user:
+    name: "{{ app_user }}"
+    groups: "{{ app_group }}"
+    append: yes
+
+- name: Install Composer Dependencies
+  become: yes
+  become_user: "{{ app_user }}"
+  composer:
+    command: install
+    working_dir: "{{ app_path }}"
+    optimize_autoloader: yes
+    no_dev: no
+
+- name: Maintenance | Check if service is active
+  command: "supervisorctl status {{ app_name }}:*"
+  register: service_check
+  become: yes
+  failed_when: false
+  changed_when: false
+  when: supervisor_conf.stat.exists
+
+- name: Maintenance | Stop existing Octane service
+  shell: "supervisorctl stop {{ app_name }}:* || supervisorctl stop {{ app_name }} || true"
+  become: yes
+  register: stop_result
+  changed_when: "'stopped' in stop_result.stdout"
+  when: supervisor_conf.stat.exists
+
+- name: Ensure .env file exists
+  copy:
+    src: "{{ app_path }}/.env.example"
+    dest: "{{ app_path }}/.env"
+    remote_src: yes
+    force: no
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Clear Artisan Cache
+  become: yes
+  become_user: "{{ app_user }}"
+  command: "php {{ app_path }}/artisan config:clear"
+  args:
+    chdir: "{{ app_path }}"
+  ignore_errors: yes
+
+- name: Check if Laravel Octane is in composer.json
+  command: "grep -q 'laravel/octane' {{ app_path }}/composer.json"
+  register: octane_check
+  failed_when: false # Ini akan membuat warna output jadi oranye/kuning, bukan merah fatal
+  changed_when: false
+
+- name: Require Laravel Octane via Composer
+  become: yes
+  become_user: "{{ app_user }}"
+  command: "composer require laravel/octane"
+  args:
+    chdir: "{{ app_path }}"
+  when: octane_check.rc != 0 # Jalan cuma kalau grep tadi TIDAK nemuin katanya (rc: 1)
+
+- name: Install Laravel Octane (FrankenPHP binary)
+  become: yes
+  become_user: "{{ app_user }}"
+  command: "php {{ app_path }}/artisan octane:install --server=frankenphp --no-interaction"
+  args:
+    chdir: "{{ app_path }}" # Gunakan chdir juga di sini
+    creates: "{{ app_path }}/frankenphp"
+
+- name: Set directory ownership
+  file:
+    path: "{{ app_path }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+    state: directory
+
+- name: Apply directory permissions (775)
+  command: "find {{ app_path }} -type d -exec chmod 775 {} \\;"
+  changed_when: false
+
+- name: Apply file permissions (664)
+  command: "find {{ app_path }} -type f -exec chmod 664 {} \\;"
+  changed_when: false
+
+- name: Fix SQLite & Storage folder specific write access
+  file:
+    path: "{{ item }}"
+    mode: "0775"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  loop:
+    - "{{ app_path }}/storage"
+    - "{{ app_path }}/database"
+    - "{{ app_path }}/bootstrap/cache"
+
+- name: Deploy Supervisor configuration
+  template:
+    src: octane.conf.j2
+    dest: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+  notify: restart supervisor
+
+- name: Supervisor | Reread config files
+  command: supervisorctl reread
+  become: yes
+  changed_when: false
+
+- name: Supervisor | Update process group
+  command: supervisorctl update
+  become: yes
+  changed_when: false
+
+- name: Ensure Supervisor is started
+  service:
+    name: supervisor
+    state: started
+    enabled: yes
+
+- name: Finalize | Start Octane Service
+  shell: "supervisorctl start {{ app_name }}:* || supervisorctl start {{ app_name }}"
+  become: yes
+  register: octane_start_result
+  failed_when:
+    - octane_start_result.rc != 0
+    - "'already started' not in octane_start_result.stdout"
+    - "'already started' not in octane_start_result.stderr"
+  changed_when: "'started' in octane_start_result.stdout"
