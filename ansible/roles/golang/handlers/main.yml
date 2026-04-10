@@ -1,10 +1,10 @@
 ---
-- name: Restart Nginx
-  systemd:
-    name: nginx
+- name: restart supervisor
+  service:
+    name: supervisor
     state: restarted
 
-- name: Reload Nginx
-  systemd:
-    name: nginx
-    state: reloaded
+- name: reload octane
+  supervisorctl:
+    name: "{{ app_name }}" # Pake variabel biar gak salah restart
+    state: restarted

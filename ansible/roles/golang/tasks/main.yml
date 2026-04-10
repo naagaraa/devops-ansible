@@ -1,36 +1,71 @@
 ---
-# ... (task pre-check & maintenance tetep sama kayak sebelumnya) ...
+# 1. PRE-CHECK & DIRECTORY SETUP
+- name: Pre-check | Check if supervisor config exists
+  stat:
+    path: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+  register: supervisor_conf
 
-- name: Setup | Ensure storage logs directory exists
+- name: Setup | Ensure directories exist
   file:
-    path: "{{ app_path }}/storage/logs"
+    path: "{{ item }}"
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0775"
+  loop:
+    - "{{ app_path }}"
+    - "{{ app_path }}/storage/logs"
 
+# 2. MAINTENANCE
+- name: Maintenance | Stop existing Go service
+  shell: "supervisorctl stop {{ app_name }}:* || supervisorctl stop {{ app_name }} || true"
+  become: yes
+  when: supervisor_conf.stat.exists
+  register: stop_result
+  changed_when: "'stopped' in stop_result.stdout"
+
+# 3. BUILD PROCESS
 - name: Build | Compile Go Binary (Artisan Style)
   shell: "/usr/local/go/bin/go build -o artisan ./cmd/artisan"
   args:
     chdir: "{{ app_path }}"
   become: yes
   become_user: "{{ app_user }}"
-  # Kita trigger build cuma kalau ada perubahan kode (optional tapi bagus)
-  register: build_output
 
+# 4. PERMISSIONS & OWNERSHIP (TASK BARU)
+- name: Permissions | Ensure app_user owns the project directory
+  file:
+    path: "{{ app_path }}"
+    state: directory
+    recurse: yes
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Permissions | Make artisan binary executable
+  file:
+    path: "{{ app_path }}/artisan"
+    mode: "0755"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+# 5. DEPLOY CONFIG & RELOAD
 - name: Deploy | Supervisor configuration
   template:
     src: go_app.conf.j2
     dest: "/etc/supervisor/conf.d/{{ app_name }}.conf"
   become: yes
 
-- name: Supervisor | Reload and Update
+- name: Supervisor | Force Reread and Update
   shell: "supervisorctl reread && supervisorctl update"
   become: yes
   changed_when: false
 
+# 6. FINALIZE (START/RESTART)
 - name: Finalize | Start/Restart Go Service
   shell: "supervisorctl restart {{ app_name }}:* || supervisorctl restart {{ app_name }} || supervisorctl start {{ app_name }}"
   become: yes
   register: go_start_result
+  failed_when:
+    - go_start_result.rc != 0
+    - "'already started' not in go_start_result.stdout"
   changed_when: "'started' in go_start_result.stdout or 'restarted' in go_start_result.stdout"
