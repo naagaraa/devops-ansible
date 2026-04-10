@@ -1,0 +1,36 @@
+---
+# ... (task pre-check & maintenance tetep sama kayak sebelumnya) ...
+
+- name: Setup | Ensure storage logs directory exists
+  file:
+    path: "{{ app_path }}/storage/logs"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0775"
+
+- name: Build | Compile Go Binary (Artisan Style)
+  shell: "/usr/local/go/bin/go build -o artisan ./cmd/artisan"
+  args:
+    chdir: "{{ app_path }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  # Kita trigger build cuma kalau ada perubahan kode (optional tapi bagus)
+  register: build_output
+
+- name: Deploy | Supervisor configuration
+  template:
+    src: go_app.conf.j2
+    dest: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+  become: yes
+
+- name: Supervisor | Reload and Update
+  shell: "supervisorctl reread && supervisorctl update"
+  become: yes
+  changed_when: false
+
+- name: Finalize | Start/Restart Go Service
+  shell: "supervisorctl restart {{ app_name }}:* || supervisorctl restart {{ app_name }} || supervisorctl start {{ app_name }}"
+  become: yes
+  register: go_start_result
+  changed_when: "'started' in go_start_result.stdout or 'restarted' in go_start_result.stdout"
