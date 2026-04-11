@@ -5,6 +5,6 @@ autorestart=true
 user={{ app_user }}
 directory={{ app_path }}
 redirect_stderr=true
-stdout_logfile={{ app_path }}/storage/logs/app.log
-environment=PORT="{{ app_port }}",APP_ENV="production"
+stdout_logfile=/var/log/{{ app_name }}.log
+environment=PORT="{{ app_port }}",APP_ENV="dev"
 stopwaitsecs=3600

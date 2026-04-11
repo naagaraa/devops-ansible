@@ -34,6 +34,14 @@
     - role: laravel-octane
       tags: [laravel-octane]
 
+- name: Setup Golang + Supervisor
+  hosts: webservers
+  become: yes
+  tags: [go-apps]
+  roles:
+    - role: golang
+      tags: [golang]
+
 - name: Setup PostgreSQL Database
   hosts: app-db
   become: yes

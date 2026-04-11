@@ -1,7 +1,7 @@
 ---
-app_name: "go-api"
+app_name: "backend-go-3"
 app_path: "/var/www/{{ app_name }}"
 app_user: "app-space"
 app_group: "www-data"
-go_version: "1.22.2" # Sesuaikan versi
-app_port: "8080" # Port aplikasi Go lo
+go_version: "1.24.11" # Sesuaikan versi
+app_port: "5000" # Port aplikasi Go lo

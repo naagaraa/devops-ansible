@@ -13,6 +13,7 @@ help:
 	@echo "  make ssh-users         - Create SSH users with certificate auth"
 	@echo "  make base              - Run app-server-base role only"
 	@echo "  make laravel-apps      - Run Setup Laravel Apps"
+	@echo "  make golang-apps      - Run Setup Laravel Apps"
 	@echo "  make ntopng            - Run ntopng role only"
 	@echo "  make laravel-go        - Run laravel-go role only"
 	@echo "  make postgresql        - Run PostgreSQL role only"
@@ -29,6 +30,9 @@ dry-run:
 
 laravel-apps:
 	@cd ansible && ansible-playbook playbooks/main.yml --tags laravel-apps --ask-pass --ask-become-pass
+
+go-apps:
+	@cd ansible && ansible-playbook playbooks/main.yml --tags go-apps --ask-pass --ask-become-pass
 
 ssh-keys:
 	@cd ansible && ansible-playbook playbooks/ssh-keys.yml --tags ssh-keys:generate --ask-pass --ask-become-pass
