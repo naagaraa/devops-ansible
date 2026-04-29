@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  laravel_octane:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel_octane_app
+    env_file:
+      - .env # Loads environment variables from .env file
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    networks:
+      - app-network
+    restart: unless-stopped # Container restart policy
+    environment:
+      # Remove database-related environment variables as DB is separate
+      # Explicitly set APP_PORT if not defined in .env and you want to ensure it
+      # APP_PORT: 8000
+    volumes:
+      - laravel_octane_storage:/app/storage # Persist storage
+      - laravel_octane_bootstrap_cache:/app/bootstrap/cache # Persist cache
+    # Remove depends_on as DB is separate
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  laravel_octane_storage:
+  laravel_octane_bootstrap_cache:

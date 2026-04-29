@@ -1,112 +1,108 @@
 ---
-# 1. PRE-CHECK: Cek apakah config supervisor dengan nama ini sudah ada
-- name: Pre-check | Check if supervisor config exists
-  stat:
-    path: "/etc/supervisor/conf.d/{{ app_name }}.conf"
-  register: supervisor_conf
+# This role manages the Go application deployment using Docker Compose.
+# Supervisor and related tasks have been removed and replaced with Docker commands.
 
-# 2. VALIDASI PORT (Hanya jalan jika project BELUM PERNAH diinstall/app_name baru)
-- name: Validation | Check port if this is a NEW project
-  wait_for:
-    port: "{{ app_port }}"
-    state: stopped
-    timeout: 2
-  ignore_errors: yes
-  register: port_status
-  when: not supervisor_conf.stat.exists
+# 1. PREREQUISITES: Ensure Docker and Docker Compose are installed and running.
+#    This section assumes Docker is installed. If not, you would need to add tasks
+#    to install it (e.g., using apt for Debian/Ubuntu).
 
-- name: Validation | Fail if port is used by ANOTHER project
-  fail:
-    msg: "Port {{ app_port }} sudah dipakai project lain. Ganti port-nya dulu!"
-  when:
-    - not supervisor_conf.stat.exists
-    - port_status is failed
-
-# 3. MAINTENANCE: Stop service (kalau project sudah ada)
-- name: Maintenance | Stop existing Go service
-  shell: "supervisorctl stop {{ app_name }}:* || supervisorctl stop {{ app_name }} || true"
+- name: Ensure Docker is installed
+  ansible.builtin.package:
+    name: docker.io
+    state: present
+    update_cache: yes
   become: yes
-  when: supervisor_conf.stat.exists
+  when: ansible_os_family == 'Debian' # Example for Debian-based systems
 
-- name: Setup | Ensure directories exist
-  file:
+- name: Ensure Docker service is started and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
+
+# Install Docker Compose using pip. Requires python3-pip to be installed.
+# Adjust this task if you have a different method for installing Docker Compose.
+- name: Ensure Python pip is installed
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_os_family == 'Debian'
+
+- name: Install Docker Compose via pip
+  ansible.builtin.pip:
+    name: docker-compose
+    state: present
+  become: yes
+
+# 2. APPLICATION SETUP: Prepare the application directory and its configuration files.
+
+- name: Ensure application directory exists and has correct ownership
+  ansible.builtin.file:
+    path: "{{ app_path }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+  become: yes
+
+
+- name: Ensure .env file exists with necessary variables for Docker
+  ansible.builtin.blockinfile:
+    path: "{{ app_path }}/.env"
+    block: |
+      # Environment variables for Docker container
+      # APP_PORT should match the port exposed in the Dockerfile (e.g., 8080)
+      # and the internal port in docker-compose.yml (e.g., 3000:3000 maps host:container)
+      APP_PORT={{ app_port | default('3000') }}
+      APP_ENV={{ app_env | default('production') }}
+      # Add other necessary environment variables here, e.g., database credentials
+      # DB_HOST=db
+      # DB_PORT=5432
+      # DB_USER=your_db_user
+      # DB_PASSWORD=your_db_password
+      # DB_NAME=your_db_name
+    create: yes # Create .env if it doesn't exist
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+  become: yes
+
+# 3. DOCKER DEPLOYMENT: Build and run the application using Docker Compose.
+
+- name: Ensure common application data directories exist (e.g., storage/logs)
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0775"
   loop:
-    - "{{ app_path }}"
-    - "{{ app_path }}/storage/logs"
-
-# 2. MAINTENANCE
-- name: Maintenance | Stop existing Go service
-  shell: "supervisorctl stop {{ app_name }}:* || supervisorctl stop {{ app_name }} || true"
-  become: yes
-  when: supervisor_conf.stat.exists
-  register: stop_result
-  changed_when: "'stopped' in stop_result.stdout"
-
-# 2. CONFIGURATION UPDATE
-- name: Config | Update APP_PORT in .env file
-  lineinfile:
-    path: "{{ app_path }}/.env"
-    regexp: "^APP_PORT="
-    line: "APP_PORT={{ app_port }}"
-    create: yes # Buat file .env kalau belum ada
-  become: yes
-  become_user: "{{ app_user }}"
-
-- name: Config | Update APP_ENV in .env file
-  lineinfile:
-    path: "{{ app_path }}/.env"
-    regexp: "^APP_ENV="
-    line: "APP_ENV=local" # Atau sesuaikan dengan env lo
-  become: yes
-  become_user: "{{ app_user }}"
-
-# 3. BUILD PROCESS
-- name: Build | Compile Go Binary (Artisan Style)
-  command: "/usr/bin/go build -buildvcs=false -o artisan ./cmd/artisan"
-  args:
-    chdir: "{{ app_path }}"
-  become: yes
-  become_user: "{{ app_user }}"
-
-# 4. PERMISSIONS & OWNERSHIP (TASK BARU)
-- name: Permissions | Ensure app_user owns the project directory
-  file:
-    path: "{{ app_path }}"
-    state: directory
-    recurse: yes
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-
-- name: Permissions | Make artisan binary executable
-  file:
-    path: "{{ app_path }}/artisan"
-    mode: "0755"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-
-# 5. DEPLOY CONFIG & RELOAD
-- name: Deploy | Supervisor configuration
-  template:
-    src: go_app.conf.j2
-    dest: "/etc/supervisor/conf.d/{{ app_name }}.conf"
+    - "{{ app_path }}/storage/logs" # Common log directory for Go apps
   become: yes
 
-- name: Supervisor | Force Reread and Update
-  shell: "supervisorctl reread && supervisorctl update"
+- name: Build Docker image for the Go application using docker-compose
+  community.docker.docker_compose:
+    project_src: "{{ app_path }}" # Path to the directory containing docker-compose.yml
+    build: true # Triggers 'docker-compose build'
   become: yes
-  changed_when: false
+  register: docker_compose_build
+  changed_when: "'built' in docker_compose_build.stdout"
 
-# 6. FINALIZE (START/RESTART)
-- name: Finalize | Start/Restart Go Service
-  shell: "supervisorctl restart {{ app_name }}:* || supervisorctl restart {{ app_name }} || supervisorctl start {{ app_name }}"
+- name: Start the Go application container using Docker Compose
+  community.docker.docker_compose:
+    project_src: "{{ app_path }}" # Path to the directory containing docker-compose.yml
+    state: present # Equivalent to 'docker-compose up -d'
+    restarted: yes # Ensures container is running and restarts if it stopped
   become: yes
-  register: go_start_result
-  failed_when:
-    - go_start_result.rc != 0
-    - "'already started' not in go_start_result.stdout"
-  changed_when: "'started' in go_start_result.stdout or 'restarted' in go_start_result.stdout"
+  register: docker_compose_up
+  changed_when: "'created' in docker_compose_up.stdout or 'recreated' in docker_compose_up.stdout or 'started' in docker_compose_up.stdout"
+
+# Optional: Add tasks to stop/remove containers if needed for updates or uninstallation.
+# - name: Stop and remove Go application containers
+#   community.docker.docker_compose:
+#     project_src: "{{ app_path }}"
+#     state: absent # Equivalent to 'docker-compose down'
+#   become: yes

@@ -1,5 +1,5 @@
 ---
-app_name: "example-app" # Ganti sesuai project
+app_name: "backend-laravel" # Ganti sesuai project
 app_path: "/var/www/{{ app_name }}"
 app_user: "app-space"
 app_group: "www-data"

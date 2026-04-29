@@ -1,19 +1,28 @@
 import http from "k6/http";
-import { sleep } from "k6";
+import { check } from "k6";
+
 export const options = {
-  stages: [
-    { duration: "30s", target: 50 },
-    { duration: "30s", target: 100 },
-    { duration: "30s", target: 200 },
-    { duration: "30s", target: 300 },
-    { duration: "30s", target: 0 },
-  ],
+  scenarios: {
+    constant_rps: {
+      executor: "constant-arrival-rate",
+      rate: 1000, // 👈 10k RPS
+      timeUnit: "1s",
+      duration: "1m",
+      preAllocatedVUs: 200,
+      maxVUs: 1000,
+    },
+  },
+  thresholds: {
+    http_req_failed: ["rate<0.01"],
+    http_req_duration: ["p(95)<50"], // target <50ms
+  },
 };
 
 export default function () {
-  // http.get("http://192.168.1.30/");
-  http.get("https://api.hiragispace.my.id");
-  // sleep(1);
-}
+  const res = http.get("http://192.168.1.30/golang/health");
+  // const res = http.get("https://gateway.hiragispace.my.id/golang/health");
 
-// k6 run test.js
+  check(res, {
+    "status is 200": (r) => r.status === 200,
+  });
+}

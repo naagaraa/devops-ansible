@@ -1,0 +1,39 @@
+
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go_app_backend
+    env_file:
+      - .env # Memuat environment variables dari file .env
+    ports:
+      - "3000:3000" # Map port host 3000 ke port container 3000
+    networks:
+      - app-network
+    restart: unless-stopped # Kebijakan restart container
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5" # Contoh limit CPU
+          memory: 512M # Contoh limit Memory
+    command: serve # Menjalankan perintah 'serve' melalui ENTRYPOINT artisan
+    # Healthcheck sulit diimplementasikan dengan distroless/static-debian12 karena tidak ada curl/wget.
+    # Jika aplikasi Anda mengekspos endpoint /healthz, Anda bisa mencoba ini:
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 10s
+    # Namun, ini memerlukan curl di image, yang tidak dimiliki oleh distroless/static-debian12.
+
+
+networks:
+  app-network:
+    driver: bridge # Menggunakan driver bridge untuk jaringan yang terisolasi
+
+volumes:
+  db_data: # Mendefinisikan named volume untuk persistensi database
