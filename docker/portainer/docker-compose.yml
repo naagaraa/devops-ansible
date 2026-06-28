@@ -1,14 +1,22 @@
 services:
   portainer:
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:lts
     container_name: portainer
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - "8001:8000"
-      - "9443:9443"
+      - "127.0.0.1:9443:9443"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
+      - /home/developer/docker/portainer:/data
 
-volumes:
-  portainer_data:
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - devops
+
+networks:
+  devops:
+    external: true

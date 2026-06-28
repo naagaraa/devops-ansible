@@ -1,19 +1,27 @@
 services:
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2023-08-23T10-07-06Z
     container_name: minio
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
     volumes:
-      - minio_data:/data
-    env_file: ../.env
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      - /home/developer/docker/minio/data:/data
+
+    env_file:
+      - /home/developer/docker/minio/.env
+
     command: server /data --console-address ":9001"
 
-volumes:
-  minio_data:
-    driver: local
+    networks:
+      - devops
+
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  devops:
+    external: true

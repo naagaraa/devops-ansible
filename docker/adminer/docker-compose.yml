@@ -2,9 +2,25 @@ services:
   adminer:
     image: adminer:latest
     container_name: adminer
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - "8081:8080"
-    environment:
-      ADMINER_DEFAULT_SERVER: postgresql
-      ADMINER_DEFAULT_DB_DRIVER: pgsql
+      - "127.0.0.1:8081:8080"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    security_opt:
+      - no-new-privileges:true
+
+    read_only: true
+
+    tmpfs:
+      - /tmp
+
+    networks:
+      - devops
+
+networks:
+  devops:
+    external: true

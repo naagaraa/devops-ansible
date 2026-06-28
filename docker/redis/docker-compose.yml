@@ -2,32 +2,42 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
+
     volumes:
-      - redis_data:/data
+      - /home/developer/docker/redis/data:/data
+
     command: >
       redis-server
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD:-dev_password}
-    env_file: ../.env
+      --requirepass ${REDIS_PASSWORD}
+
+    env_file:
+      - /home/developer/docker/redis/.env
+
+    networks:
+      - devops
 
   redisinsight:
     image: redis/redisinsight:latest
     container_name: redisinsight
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - "5540:5540"
+      - "127.0.0.1:5540:5540"
+
     volumes:
-      - redisinsight_data:/data
-    environment:
-      - REDISINSIGHT_HOST=0.0.0.0
+      - /home/developer/docker/redisinsight/data:/data
+
     depends_on:
       - redis
 
-volumes:
-  redis_data:
-    driver: local
-  redisinsight_data:
-    driver: local
+    networks:
+      - devops
+
+networks:
+  devops:
+    external: true
